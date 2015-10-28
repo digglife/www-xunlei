@@ -5,7 +5,7 @@ use strict;
 use warnings;
 
 use LWP::UserAgent;
-use HTTP::Request::Common;
+use HTTP::Request;
 use JSON;
 use URI::Escape;
 use Digest::MD5 qw(md5 md5_hex md5_base64);
@@ -219,3 +219,29 @@ sub _debug {
 }
 
 1;
+
+__END__
+
+=head1 SYNOPSIS
+
+    use WWW::Xunlei;
+    my $client = WWW::Xunlei->new("username", "password");
+    $client->login;
+    # use the first downloader;
+    my $downloader = $client->list_downloaders()->[0];
+    # create a remote task;
+    $downloader->create_task("http://www.cpan.org/src/5.0/perl-5.22.0.tar.gz");
+
+=head1 DESCRIPTION
+
+C<WWW::Xunlei> is a Perl Wrapper of Xunlei Remote Downloader API.
+L<Official Site of Xunlei Remote|http://yuancheng.xunlei.com>
+
+B<This module is now under deveopment. It's not stable.>
+
+
+=method new( "username", "password")
+
+=method login()
+
+=method listdownloader()
