@@ -45,7 +45,6 @@ sub new {
 
     $self->{'ua'} = LWP::UserAgent->new;
     $self->{'ua'}->cookie_jar( { ignore_discard => 0 } );
-    #$self->{'ua'}->cookie_jar();
     $self->{'ua'}->agent(DEFAULT_USER_AGENT);
 
     $self->{'json'} = JSON->new->allow_nonref;
@@ -72,7 +71,6 @@ sub list_downloaders {
         push @downloaders, WWW::Xunlei::Downloader->new($self, $p);
     }
 
-    #return wantarray ? @{$res->{'peerList'}} : $res->{'peerList'};
     return wantarray ? @downloaders : \@downloaders;
 }
 
@@ -109,7 +107,6 @@ sub login {
     };
 
     # $self->{'ua'}->post(join( '/', URL_LOGIN, 'sec2login/'), $parameters);
-    # $self->_debug($self->{'ua'});
     $self->_request( 'POST', URL_LOGIN . 'sec2login/', $parameters );
 }
 
