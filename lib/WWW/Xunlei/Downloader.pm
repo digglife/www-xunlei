@@ -117,7 +117,7 @@ sub create_task_info {
     };
 
     if ( $url =~ /^(http|https|ftp|magnet|ed2k|thunder|mms|rtsp)\:.+/ ) {
-        my $res  = $self->url_resolve($url);
+        my $res = $self->url_resolve($url);
         $task = {
             'url'      => $res->{'url'},
             'name'     => $res->{'name'},
@@ -126,6 +126,7 @@ sub create_task_info {
     }
     else {
         die "Not a valid Network Protocol";
+
         #return;
     }
 
@@ -143,7 +144,6 @@ sub create_task {
 
     my $res = $self->create_tasks( [$task], $path );
     return wantarray ? @{ $res->{'tasks'} } : $res->{'tasks'};
-
 }
 
 sub create_tasks {
