@@ -1,5 +1,7 @@
 package WWW::Xunlei::Downloader;
 
+# ABSTRACT: Downloader Object for Xunlei Remote Service.
+
 use strict;
 use warnings;
 
@@ -67,10 +69,52 @@ sub get_box_space {
     return wantarray ? @{ $res->{'space'} } : $res->{'space'};
 }
 
+sub list_running_tasks {
+    my $self = shift;
+    my ($number) = @_;
+    return $self->list_tasks( 'running', $number );
+}
+
+sub list_completed_tasks {
+    my $self = shift;
+    my ($number) = @_;
+    return $self->list_tasks( 'completed', $number );
+}
+
+sub list_recycled_tasks {
+    my $self = shift;
+    my ($number) = @_;
+    return $self->list_tasks( 'recycled', $number );
+}
+
+sub list_failed_tasks {
+    my $self = shift;
+    my ($number) = @_;
+    return $self->list_tasks( 'failed', $number );
+}
+
 sub list_tasks {
     my $self = shift;
+    my ( $type, $pos, $number );
 
-    my ( $type, $pos, $number ) = @_;
+    $type = shift || 'running';
+    if ( @_ > 0 ) {
+        ( $pos, $number ) = @_;
+    }
+    else {
+        ($number) = @_;
+    }
+
+    my %types = (
+        'running'   => 0,
+        'completed' => 1,
+        'recycled'  => 2,
+        'failed'    => 3,
+    );
+
+    $type = $types{$type};
+    $number ||= 20;
+    $pos    ||= 0;
 
     my $parameters = {
         'type'   => $type,
@@ -79,6 +123,69 @@ sub list_tasks {
     };
 
     my $res = $self->_request( 'list', $parameters );
+    return wantarray ? @{ $res->{'tasks'} } : $res->{'tasks'};
+}
+
+sub start {
+    my $self  = shift;
+    my $tasks = shift;
+    return $self->_control_tasks( 'start', $tasks );
+}
+
+sub pause {
+    my $self  = shift;
+    my $tasks = shift;
+    return $self->_control_tasks( 'pause', $tasks );
+}
+
+sub delete {
+    my $self = shift;
+    my ( $tasks, $delete_file ) = @_;
+    my $parameters = {
+        'deleteFile'  => \1,
+        'recycleFile' => 1,
+    };
+
+    $parameters->{'deleteFile'} = $delete_file ? \1 : \0;
+
+    return $self->_control_tasks( 'del', $tasks );
+}
+
+sub _control_tasks {
+    my $self = shift;
+    my ( $action, $tasks, $parameters ) = @_;
+    if ( ref $tasks ne 'ARRAY' ) {
+        $tasks = [$tasks];
+    }
+
+    my @ids;
+    for my $t (@$tasks) {
+        push @ids, join( '_', $t->{'id'}, $t->{'state'} );
+    }
+
+    $parameters->{'tasks'} = join( ',', @ids );
+
+    my $res = $self->_request( $action, $parameters );
+    return wantarray ? @{ $res->{'tasks'} } : $res->{'tasks'};
+}
+
+sub open_lixian_channel {
+    my $self       = shift;
+    my $task_id    = shift;
+    my $parameters = {
+        'open'   => \1,
+        'taskid' => $task_id,
+    };
+
+    return $self->_request( 'openLixianChannel', $parameters );
+}
+
+sub open_vip_channel {
+    my $self       = shift;
+    my $task_id    = shift;
+    my $parameters = { 'taskid' => $task_id, };
+
+    return $self->_request( 'openVipChannel', $parameters );
 }
 
 sub url_check {
@@ -91,7 +198,6 @@ sub url_check {
     };
 
     my $res = $self->_request( 'urlCheck', $parameters );
-
 }
 
 sub url_resolve {
@@ -101,13 +207,17 @@ sub url_resolve {
     my $data = { 'url' => $url };
 
     my $res = $self->_request( 'urlResolve', undef, $data );
-    return $res->{'taskInfo'};
+    return $res;
 }
 
-sub create_task_info {
+sub get_general_task_info {
     my $self = shift;
 
     my ( $url, $filename ) = @_;
+
+    unless ( $url =~ /^(http|https|ftp|magnet|ed2k|thunder|mms|rtsp)\:.+/ ) {
+        die "Not a valid URL.";
+    }
 
     my $task = {
         'gcid'     => "",
@@ -116,22 +226,17 @@ sub create_task_info {
         'ext_json' => { 'autoname' => 1 },
     };
 
-    if ( $url =~ /^(http|https|ftp|magnet|ed2k|thunder|mms|rtsp)\:.+/ ) {
-        my $res = $self->url_resolve($url);
-        $task = {
-            'url'      => $res->{'url'},
-            'name'     => $res->{'name'},
-            'filesize' => $res->{'size'},
-        };
-    }
-    else {
-        die "Not a valid Network Protocol";
+    my $res = $self->url_resolve($url)->{'taskInfo'};
+    $task = {
+        'url'      => $res->{'url'},
+        'name'     => $res->{'name'},
+        'filesize' => $res->{'size'},
+    };
 
-        #return;
+    if ( $filename && $task->{'name'} ne $filename ) {
+        $task->{'name'} = $filename;
+        $task->{'ext_json'}->{'autoname'} = 0;
     }
-
-    $task->{'ext_json'}->{'autoname'}
-        = ( !$filename || $task->{'name'} eq $filename ) ? 1 : 0;
 
     return $task;
 }
@@ -140,13 +245,41 @@ sub create_task {
     my $self = shift;
     my ( $url, $filename, $path ) = @_;
 
-    my $task = $self->create_task_info( $url, $filename );
+    my $task = $self->get_general_task_info( $url, $filename );
 
-    my $res = $self->create_tasks( [$task], $path );
+    my $res = $self->_create_general_tasks( [$task], $path );
     return wantarray ? @{ $res->{'tasks'} } : $res->{'tasks'};
 }
 
 sub create_tasks {
+    my $self = shift;
+    my ( $urls, $path ) = @_;
+
+    my @tasks;
+    for my $url (@$urls) {
+        my $task_info = $self->url_resolve($url);
+        if ( $task_info->{'taskInfo'}->{'type'} == 2 ) {
+            my @btsub = map { $_->{'id'} }
+                grep { auto_select($_) }
+                @{ $task_info->{'taskInfo'}->{'subList'} };
+
+            $self->_create_bt_task(
+                $task_info->{'taskInfo'}->{'name'},
+                $task_info->{'infohash'},
+                \@btsub, $path
+            );
+        }
+        else {
+            push @tasks, $self->get_general_task_info($url);
+        }
+    }
+
+    $self->_create_general_tasks( \@tasks, $path );
+
+    #return wantarray ? @{ $res->{'tasks'} } : $res->{'tasks'};
+}
+
+sub _create_general_tasks {
     my $self = shift;
     my ( $tasks, $path ) = @_;
 
@@ -155,6 +288,29 @@ sub create_tasks {
     $data->{'path'} = $path || $self->get_config->{'defaultPath'};
 
     my $res = $self->_request( 'createTask', undef, $data );
+}
+
+sub _create_bt_task {
+    my $self = shift;
+    my ( $name, $infohash, $btsub, $path ) = @_;
+
+    $path ||= $self->get_config->{'defaultPath'};
+    my $data = {
+        'name'     => $name,
+        'infohash' => $infohash,
+        'btSub'    => $btsub,
+        'path'     => $path,
+    };
+
+    my $res = $self->_request( 'createBtTask', undef, $data );
+}
+
+sub auto_select {
+    my $btsub = shift;
+
+    return 0 if $btsub->{'size'} < 15360;
+    return 0 if $btsub->{'name'} =~ /txt|html|htm|url$/i;
+    return 1;
 }
 
 sub _request {
