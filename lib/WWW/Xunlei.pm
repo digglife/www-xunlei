@@ -1,5 +1,4 @@
 package WWW::Xunlei;
-# ABSTRACT: Perl API For Official Xunlei Remote API.
 
 use strict;
 use warnings;
@@ -7,19 +6,13 @@ use warnings;
 use LWP::UserAgent;
 use HTTP::Request;
 use JSON;
-use URI::Escape;
-use Digest::MD5 qw(md5 md5_hex md5_base64);
 
 use File::Basename;
-use Time::HiRes qw/time/;
-use File::Spec;
-use POSIX;
-
 use Term::ANSIColor qw/:constants/;
-
 use Data::Dumper;
 
 use WWW::Xunlei::Downloader;
+use WWW::Xunlei::Utils;
 
 our $DEBUG;
 
@@ -40,7 +33,7 @@ sub new {
         'ua'   => undef,
         'json' => undef,
         'user' => $user,
-        'pass' => md5_hex( md5_hex($pass) ),
+        'pass' => md5pass($pass),
     };
 
     $self->{'ua'} = LWP::UserAgent->new;
@@ -56,9 +49,7 @@ sub new {
 sub list_downloaders {
     my $self = shift;
 
-    my $parameters = {
-        'type' => 0,
-    };
+    my $parameters = { 'type' => 0, };
 
     my $res = $self->_yc_request( 'listPeer', $parameters );
 
@@ -67,8 +58,8 @@ sub list_downloaders {
     }
 
     my @downloaders;
-    for my $p ( @{$res->{'peerList'}} ) {
-        push @downloaders, WWW::Xunlei::Downloader->new($self, $p);
+    for my $p ( @{ $res->{'peerList'} } ) {
+        push @downloaders, WWW::Xunlei::Downloader->new( $self, $p );
     }
 
     return wantarray ? @downloaders : \@downloaders;
@@ -96,8 +87,7 @@ sub unbind {
 
 sub login {
     my $self        = shift;
-    my $verify_code = uc $self->get_verify_code();
-    die "$@" unless $verify_code;
+    my $verify_code = uc $self->_get_verify_code();
     $self->_debug( "Verify Code: " . $verify_code );
     my $password   = md5_hex( $self->{'pass'} . $verify_code );
     my $parameters = {
@@ -108,32 +98,73 @@ sub login {
 
     # $self->{'ua'}->post(join( '/', URL_LOGIN, 'sec2login/'), $parameters);
     $self->_request( 'POST', URL_LOGIN . 'sec2login/', $parameters );
+
+    my $code = $self->_get_cookie('blogresult');
+    # Todo: Retry if sever problem.
+    die "Login Error: $code" if ( $code != 0 );
+    $self->_set_auto_login();
+    $self->_delete_temp_cookie();
 }
 
 sub _is_login {
     my $self = shift;
-    return $self->get_cookie('sessionid') ? 1 : 0;
+    return ($self->_get_cookie('sessionid') && $self->_get_cookie('userid'))
 }
 
-sub get_verify_code {
+sub _get_verify_code {
     my $self       = shift;
     my $parameters = {
         'u'             => $self->{'user'},
         'business_type' => BUSINESS_TYPE,
-        'cachetime'     => current_timestamp(),
+        'cachetime'     => timestamp(),
     };
     $self->_request( 'GET', URL_LOGIN . 'check/', $parameters );
-    my $check_result = $self->get_cookie('check_result');
+    my $check_result = $self->_get_cookie('check_result');
     my $verify_code = ( split( ':', $check_result ) )[1];
     return $verify_code;
 }
 
-sub get_cookie {
+sub _set_auto_login {
+    my $self      = shift;
+    my $sessionid = $self->_get_cookie('sessionid');
+    $self->_set_cookie( '_x_a_', $sessionid, 604800 );
+}
+
+sub _delete_temp_cookie {
     my $self = shift;
-    my ( $key, $domain ) = @_;
+    my @login_cookie
+        = qw/VERIFY_KEY verify_type check_n check_e logindetail result/;
+    for my $c (@login_cookie) {
+        $self->_delete_cookie($c);
+    }
+}
+
+sub _get_cookie {
+    my $self = shift;
+    my ( $key, $domain, $path ) = @_;
     $domain ||= ".xunlei.com";
+    $path ||= "/";
     my $cookie_jar = $self->{'ua'}->{'cookie_jar'};
-    return $cookie_jar->{'COOKIES'}->{$domain}->{'/'}->{$key}->[1];
+    return $cookie_jar->{'COOKIES'}{$domain}{'/'}{$key}[1];
+}
+
+sub _set_cookie {
+    my $self = shift;
+    my ( $key, $value, $expire, $domain, $path ) = @_;
+    $domain ||= ".xunlei.com";
+    $path ||= "/";
+    $self->{'cookie_jar'}
+        ->set_cookie( undef, $key, $value, $path, $domain, undef,
+        undef, undef, $expire );
+}
+
+sub _delete_cookie {
+    my $self = shift;
+    my ( $key, $domain, $path ) = @_;
+    $domain ||= ".xunlei.com";
+    $path   ||= "/";
+    my $cookie_jar = $self->{'ua'}->{'cookie_jar'};
+    delete $cookie_jar->{'COOKIES'}{$domain}{'/'}{$key};
 }
 
 sub _yc_request {
@@ -142,10 +173,10 @@ sub _yc_request {
 
     my $method = $data ? 'POST' : 'GET';
     my $uri = URL_REMOTE . $action;
-    $parameters->{'v'} = V;
+    $parameters->{'v'}  = V;
     $parameters->{'ct'} = CT;
 
-    return $self->_request($method, $uri, $parameters, $data);
+    return $self->_request( $method, $uri, $parameters, $data );
 }
 
 sub _request {
@@ -165,42 +196,24 @@ sub _request {
         $uri .= '?' . $form_string;
         if ( ref $postdata ) {
             $payload = $self->{'json'}->encode($postdata);
-            $payload = urlencode({ 'json' => $payload });
+            $payload = urlencode( { 'json' => $payload } );
         }
     }
 
     my $request = HTTP::Request->new( $method => $uri, undef, $payload );
-    #$request->header( 'User-Agent' => DEFAULT_USER_AGENT );
-    $request->header('Content-Type' => 'application/x-www-form-urlencoded');
+    $request->header( 'Content-Type' => 'application/x-www-form-urlencoded' );
     $self->_debug($request);
     my $response = $self->{'ua'}->request($request);
-    die "$@" unless $response->is_success;
+    die $response->code . ":" . $response->message
+        unless $response->is_success;
     my $content = $response->content;
 
     $self->_debug($content);
-
-    #$self->_debug( $self->{'ua'} );
 
     $content =~ s/\s$//g;
     return "" unless ( length($content) );
 
     return $self->{'json'}->decode($content) if ( $content =~ /\s*[\[\{\"]/ );
-}
-
-sub current_timestamp {
-    return int( time() * 1000 );
-}
-
-sub urlencode {
-    my $data = shift;
-
-    my @parameters;
-    for my $key ( keys %$data ) {
-        push @parameters,
-            join( '=', map { uri_escape_utf8($_) } $key, $data->{$key} );
-    }
-    my $encoded_data = join( '&', @parameters );
-    return $encoded_data;
 }
 
 sub _debug {
@@ -218,6 +231,8 @@ sub _debug {
 1;
 
 __END__
+
+# ABSTRACT: Perl API For Official Xunlei Remote API.
 
 =head1 SYNOPSIS
 
@@ -241,4 +256,4 @@ B<This module is now under deveopment. It's not stable.>
 
 =method login()
 
-=method listdownloader()
+=method list_downloaders()
