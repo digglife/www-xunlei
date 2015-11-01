@@ -1,16 +1,10 @@
 package WWW::Xunlei::Utils;
 use Exporter 'import';
-@EXPORT = qw(urlencode md5pass timestamp);
+@EXPORT = qw(urlencode md5pass);
 
-use Time::HiRes qw/time/;
 use File::Spec;
-use POSIX;
 use URI::Escape;
 use Digest::MD5 qw(md5_hex);
-
-sub timestamp {
-    return int( time() * 1000 );
-}
 
 sub urlencode {
     my $data = shift;
