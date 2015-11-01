@@ -16,7 +16,7 @@ my $check_response = HTTP::Response->new(
     [   'Content-Type' => 'text/html; charset=utf-8',
         'Set-Cookie'   => 'check_result=0:!fQs; PATH=/; DOMAIN=xunlei.com;',
         'Set-Cookie'   => 'deviceid='
-            . 'wdi10.96f8fefa547b7e74b9e4516bc7ce7d107ce9aadde044108955d4f1a6a79aaf97;'
+            . 'wdi10.justafakeid;'
             . ' PATH=/; DOMAIN=xunlei.com;EXPIRES=Mon, 27-Oct-25 02:09:57 GMT;',
     ],
     ''
@@ -28,6 +28,25 @@ $client->{'ua'}->map_response(
 );
 
 
-is( $client->_get_verify_code(), '!fQs', 'Get Verify Code OK' );
+is( $client->_get_verify_code(), '!fQs', '_get_verify_code OK' );
+
+my $form_login_response = HTTP::Response->new(
+    '200', 'OK',
+    [   'Content-Type' => 'text/html; charset=utf-8',
+        'Set-Cookie'   => 'blogresult=0; PATH=/; DOMAIN=xunlei.com;'
+            . ' PATH=/; DOMAIN=xunlei.com;EXPIRES=Mon, 27-Oct-25 02:09:57 GMT;',
+        'Set-Cookie'   => 'sessionid=justafakesessionid;'
+            . ' PATH=/; DOMAIN=xunlei.com;',
+        'Set-Cookie'   => 'userid=123456789; PATH=/; DOMAIN=xunlei.com;',
+    ],
+    '',
+);
+
+$client->{'ua'}->map_response(
+    qr{login.xunlei.com/sec2login},
+    $form_login_response,
+);
+
+is ( $client->_form_login, 0, '_form_login OK');
 
 done_testing();
