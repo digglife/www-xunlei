@@ -324,12 +324,6 @@ sub _request {
     }
 
     my $res = $self->{'client'}->_yc_request( $action, $parameters, $data );
-    if ( $res->{'rtn'} != 0 ) {
-
-        # Todo: Handling not login failed here.
-        die "Request Error: $res->{'rtn'}";
-    }
-
     return $res;
 }
 

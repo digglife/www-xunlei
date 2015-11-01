@@ -5,14 +5,17 @@ use warnings;
 
 use LWP::UserAgent;
 use HTTP::Request;
+use URI::Escape;
 use JSON;
 
 use File::Basename;
+use File::Path qw/mkpath/;
+use Time::HiRes qw/gettimeofday/;
+use Digest::MD5 qw(md5_hex);
 use Term::ANSIColor qw/:constants/;
 use Data::Dumper;
 
 use WWW::Xunlei::Downloader;
-use WWW::Xunlei::Utils;
 
 our $DEBUG;
 
@@ -36,8 +39,9 @@ sub new {
         'pass' => md5pass($pass),
     };
 
+    my $cookie_file = $options{'cookie_file'};
     $self->{'ua'} = LWP::UserAgent->new;
-    $self->{'ua'}->cookie_jar( { ignore_discard => 0 } );
+    $self->{'ua'}->cookie_jar( { file => $cookie_file } );
     $self->{'ua'}->agent(DEFAULT_USER_AGENT);
 
     $self->{'json'} = JSON->new->allow_nonref;
@@ -85,7 +89,22 @@ sub unbind {
     my $res = $self->_yc_request( 'unbind', { 'pid' => $pid } );
 }
 
-sub login {
+sub _login {
+    my $self = shift;
+    my $res;
+    if ( $self->_is_session_expired ) {
+        $res = $self->_form_login;
+    }
+    else {
+        $res = $self->_session_login;
+    }
+
+    die "Login Error: $res" if ( $res != 0 );
+    $self->_set_auto_login();
+    $self->_save_cookie();
+}
+
+sub _form_login {
     my $self        = shift;
     my $verify_code = uc $self->_get_verify_code();
     $self->_debug( "Verify Code: " . $verify_code );
@@ -99,16 +118,30 @@ sub login {
     # $self->{'ua'}->post(join( '/', URL_LOGIN, 'sec2login/'), $parameters);
     $self->_request( 'POST', URL_LOGIN . 'sec2login/', $parameters );
 
-    my $code = $self->_get_cookie('blogresult');
-    # Todo: Retry if sever problem.
-    die "Login Error: $code" if ( $code != 0 );
-    $self->_set_auto_login();
-    $self->_delete_temp_cookie();
+    return $self->_get_cookie('blogresult');
+}
+
+sub _session_login {
+    my $self = shift;
+    my $parameters = { 'sessionid' => $self->_get_cookie('sessionid'), };
+    $self->_request( 'GET', URL_LOGIN . 'sessionid/', $parameters );
+    return $self->_get_cookie('blogresult');
 }
 
 sub _is_login {
     my $self = shift;
-    return ($self->_get_cookie('sessionid') && $self->_get_cookie('userid'))
+    return (   $self->_get_cookie('sessionid')
+            && $self->_get_cookie('userid') );
+}
+
+sub _is_session_expired {
+    my $self = shift;
+
+    my $session_expired_time
+        = $self->{'ua'}
+        ->{'cookie_jar'}{'COOKIES'}{'.xunlei.com'}{'/'}{'_x_a_'}[7];
+    return 0 unless $session_expired_time;
+    return (gettimeofday)[0] > $session_expired_time;
 }
 
 sub _get_verify_code {
@@ -116,7 +149,7 @@ sub _get_verify_code {
     my $parameters = {
         'u'             => $self->{'user'},
         'business_type' => BUSINESS_TYPE,
-        'cachetime'     => timestamp(),
+        'cachetime'     => int( gettimeofday() * 1000 ),
     };
     $self->_request( 'GET', URL_LOGIN . 'check/', $parameters );
     my $check_result = $self->_get_cookie('check_result');
@@ -127,7 +160,7 @@ sub _get_verify_code {
 sub _set_auto_login {
     my $self      = shift;
     my $sessionid = $self->_get_cookie('sessionid');
-    $self->_set_cookie( '_x_a_', $sessionid, 604800 );
+    $self->_set_cookie( '_x_a_', $sessionid, time() + 604800 );
 }
 
 sub _delete_temp_cookie {
@@ -143,7 +176,7 @@ sub _get_cookie {
     my $self = shift;
     my ( $key, $domain, $path ) = @_;
     $domain ||= ".xunlei.com";
-    $path ||= "/";
+    $path   ||= "/";
     my $cookie_jar = $self->{'ua'}->{'cookie_jar'};
     return $cookie_jar->{'COOKIES'}{$domain}{'/'}{$key}[1];
 }
@@ -152,10 +185,22 @@ sub _set_cookie {
     my $self = shift;
     my ( $key, $value, $expire, $domain, $path ) = @_;
     $domain ||= ".xunlei.com";
-    $path ||= "/";
-    $self->{'cookie_jar'}
+    $path   ||= "/";
+    $self->{'ua'}->{'cookie_jar'}
         ->set_cookie( undef, $key, $value, $path, $domain, undef,
         undef, undef, $expire );
+}
+
+sub _save_cookie {
+    my $self = shift;
+
+    my $cookie_file = $self->{'ua'}->{'cookie_jar'}->{'file'};
+    return unless $cookie_file;
+    my $cookie_path = basename($cookie_file);
+    if ( !-d $cookie_path ) {
+        mkpath($cookie_path);
+    }
+    $self->{'ua'}->{'cookie_jar'}->save();
 }
 
 sub _delete_cookie {
@@ -176,7 +221,15 @@ sub _yc_request {
     $parameters->{'v'}  = V;
     $parameters->{'ct'} = CT;
 
-    return $self->_request( $method, $uri, $parameters, $data );
+    $self->_login unless $self->_is_login;
+    my $res = $self->_request( $method, $uri, $parameters, $data );
+    if ( $res->{'rtn'} != 0 ) {
+
+        # Todo: Handling not login failed here.
+        die "Request Error: $res->{'rtn'}";
+    }
+
+    return $res;
 }
 
 sub _request {
@@ -214,6 +267,26 @@ sub _request {
     return "" unless ( length($content) );
 
     return $self->{'json'}->decode($content) if ( $content =~ /\s*[\[\{\"]/ );
+}
+
+sub urlencode {
+    my $data = shift;
+
+    my @parameters;
+    for my $key ( keys %$data ) {
+        push @parameters,
+            join( '=', map { uri_escape_utf8($_) } $key, $data->{$key} );
+    }
+    my $encoded_data = join( '&', @parameters );
+    return $encoded_data;
+}
+
+sub md5pass {
+    my $pass = shift;
+    if ( $pass !~ /^[0-9a-f]{32}$/i ) {
+        $pass = md5_hex( md5_hex($pass) );
+    }
+    return $pass;
 }
 
 sub _debug {
