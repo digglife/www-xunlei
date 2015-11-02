@@ -11,6 +11,7 @@ use JSON;
 use File::Basename;
 use File::Path qw/mkpath/;
 use Time::HiRes qw/gettimeofday/;
+use POSIX qw/strftime/;
 use Digest::MD5 qw(md5_hex);
 use Term::ANSIColor qw/:constants/;
 use Data::Dumper;
@@ -123,12 +124,12 @@ sub _form_login {
 
 sub _session_login {
     my $self = shift;
-    my $parameters = { 'sessionid' => $self->_get_cookie('sessionid'), };
+    my $parameters = { 'sessionid' => $self->_get_cookie('_x_a_') };
     $self->_request( 'GET', URL_LOGIN . 'sessionid/', $parameters );
     return $self->_get_cookie('blogresult');
 }
 
-sub _is_login {
+sub _is_logged_in {
     my $self = shift;
     return (   $self->_get_cookie('sessionid')
             && $self->_get_cookie('userid') );
@@ -139,8 +140,8 @@ sub _is_session_expired {
 
     my $session_expired_time
         = $self->{'ua'}
-        ->{'cookie_jar'}{'COOKIES'}{'.xunlei.com'}{'/'}{'_x_a_'}[7];
-    return 0 unless $session_expired_time;
+        ->{'cookie_jar'}{'COOKIES'}{'.xunlei.com'}{'/'}{'_x_a_'}[5];
+    return 1 unless $session_expired_time;
     return (gettimeofday)[0] > $session_expired_time;
 }
 
@@ -160,10 +161,10 @@ sub _get_verify_code {
 sub _set_auto_login {
     my $self      = shift;
     my $sessionid = $self->_get_cookie('sessionid');
-    $self->_set_cookie( '_x_a_', $sessionid, time() + 604800 );
+    $self->_set_cookie( '_x_a_', $sessionid, 604800 );
 }
 
-sub _delete_temp_cookie {
+sub _delete_temp_cookies {
     my $self = shift;
     my @login_cookie
         = qw/VERIFY_KEY verify_type check_n check_e logindetail result/;
@@ -177,8 +178,7 @@ sub _get_cookie {
     my ( $key, $domain, $path ) = @_;
     $domain ||= ".xunlei.com";
     $path   ||= "/";
-    my $cookie_jar = $self->{'ua'}->{'cookie_jar'};
-    return $cookie_jar->{'COOKIES'}{$domain}{'/'}{$key}[1];
+    $self->{'ua'}->{'cookie_jar'}->{'COOKIES'}{$domain}{'/'}{$key}[1];
 }
 
 sub _set_cookie {
@@ -189,14 +189,16 @@ sub _set_cookie {
     $self->{'ua'}->{'cookie_jar'}
         ->set_cookie( undef, $key, $value, $path, $domain, undef,
         undef, undef, $expire );
+    $self->{'ua'}->{'cookie_jar'}->{'COOKIES'}{$domain}{$path}{$key};
 }
 
 sub _save_cookie {
     my $self = shift;
 
+    $self->_delete_cookie('blogresult');
     my $cookie_file = $self->{'ua'}->{'cookie_jar'}->{'file'};
     return unless $cookie_file;
-    my $cookie_path = basename($cookie_file);
+    my $cookie_path = dirname($cookie_file);
     if ( !-d $cookie_path ) {
         mkpath($cookie_path);
     }
@@ -208,8 +210,7 @@ sub _delete_cookie {
     my ( $key, $domain, $path ) = @_;
     $domain ||= ".xunlei.com";
     $path   ||= "/";
-    my $cookie_jar = $self->{'ua'}->{'cookie_jar'};
-    delete $cookie_jar->{'COOKIES'}{$domain}{'/'}{$key};
+    $self->{'ua'}->{'cookie_jar'}->clear($domain, $path, $key);
 }
 
 sub _yc_request {
@@ -221,7 +222,7 @@ sub _yc_request {
     $parameters->{'v'}  = V;
     $parameters->{'ct'} = CT;
 
-    $self->_login unless $self->_is_login;
+    $self->_login unless $self->_is_logged_in;
     my $res = $self->_request( $method, $uri, $parameters, $data );
     if ( $res->{'rtn'} != 0 ) {
 
