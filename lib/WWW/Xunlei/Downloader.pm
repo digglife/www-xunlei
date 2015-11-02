@@ -36,13 +36,16 @@ sub get_config {
 
 sub set_config {
     my $self   = shift;
-    my $config = shift;
+    my %config = @_;
 
-    my $parameters;
+    my $parameters = $self->get_config;
 
-    # Todo: validate the keys of $config.
-    for my $k ( keys %$config ) {
-        $parameters->{$k} = $config->{$k};
+    for my $k ( keys %config ) {
+        if (defined $parameters->{$k}){
+            $parameters->{$k} = $config{$k};
+        } else {
+            warn "$k is not a valid config option. Discard.";
+        }
     }
 
     my $res = $self->_request( 'settings', $parameters );
