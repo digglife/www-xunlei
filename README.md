@@ -10,7 +10,6 @@ version 0.04
 
     use WWW::Xunlei;
     my $client = WWW::Xunlei->new("username", "password");
-    $client->login;
     # use the first downloader;
     my $downloader = $client->list_downloaders()->[0];
     # create a remote task;
@@ -25,11 +24,20 @@ version 0.04
 
 # METHODS
 
-## new( "username", "password")
+## new( $username, $password, \[cookie\_file=>'/path/to/cookie'\])
 
-## login()
+create a Xunlei client. Load or save Cookies to a plain text file with 
+`cookie_file` option.
 
-## list\_downloaders()
+## bind($key, \[$name\])
+
+Bind a new downloader with a activation code. The new downloader's name can
+ be defined with the optional argument `$name`.
+
+## list\_downloaders
+
+List all the downloaders binding with your account. Return a list of
+`WWW::Xunlei::Downloader` object.
 
 # AUTHOR
 
