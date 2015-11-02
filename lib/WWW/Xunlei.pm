@@ -311,7 +311,6 @@ __END__
 
     use WWW::Xunlei;
     my $client = WWW::Xunlei->new("username", "password");
-    $client->login;
     # use the first downloader;
     my $downloader = $client->list_downloaders()->[0];
     # create a remote task;
@@ -325,8 +324,18 @@ L<Official Site of Xunlei Remote|http://yuancheng.xunlei.com>
 B<This module is now under deveopment. It's not stable.>
 
 
-=method new( "username", "password")
+=method new( $username, $password, [cookie_file=>'/path/to/cookie'])
 
-=method login()
+create a Xunlei client. Load or save Cookies to a plain text file with 
+C<cookie_file> option.
 
-=method list_downloaders()
+=method bind($key, [$name])
+
+Bind a new downloader with a activation code. The new downloader's name can
+ be defined with the optional argument C<$name>.
+
+=method list_downloaders
+
+List all the downloaders binding with your account. Return a list of
+C<WWW::Xunlei::Downloader> object.
+
