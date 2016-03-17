@@ -70,6 +70,16 @@ sub list_downloaders {
     return wantarray ? @downloaders : \@downloaders;
 }
 
+sub get_downloader {
+    my $self = shift;
+    
+    my $name = shift;
+
+    my @downloaders = grep { $_->{'name'} eq $name } $self->list_downloaders();
+    die "No such Downloader named >>$name<<" unless @downloaders;
+    return shift @downloaders;
+}
+
 sub bind {
     my $self = shift;
 

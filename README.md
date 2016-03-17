@@ -4,7 +4,7 @@ WWW::Xunlei - Perl API For Official Xunlei Remote API.
 
 # VERSION
 
-version 0.04
+version 0.05
 
 # SYNOPSIS
 

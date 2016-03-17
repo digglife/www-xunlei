@@ -119,4 +119,7 @@ ok($client->list_downloaders);
 my $d = $client->list_downloaders->[0];
 isa_ok($d, 'WWW::Xunlei::Downloader');
 
+ok($client->get_downloader("kusobako"));
+
+
 done_testing();
