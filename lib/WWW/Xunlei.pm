@@ -338,7 +338,7 @@ B<This module is now under deveopment. It's not stable.>
 =method new( $username, $password, [cookie_file=>'/path/to/cookie'])
 
 create a Xunlei client. Load or save Cookies to a plain text file with 
-C<cookie_file> option.
+C<cookie_file> option. The default session expire time is 7 days.
 
 =method bind($key, [$name])
 
@@ -349,4 +349,9 @@ Bind a new downloader with a activation code. The new downloader's name can
 
 List all the downloaders binding with your account. Return a list of
 C<WWW::Xunlei::Downloader> object.
+
+==method list_downloader($name)
+
+Get the downloader of which the name is $name. 
+Return a C<WWW::Xunlei::Downloader> object.
 
