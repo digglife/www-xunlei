@@ -41,9 +41,10 @@ sub set_config {
     my $parameters = $self->get_config;
 
     for my $k ( keys %config ) {
-        if (defined $parameters->{$k}){
+        if ( defined $parameters->{$k} ) {
             $parameters->{$k} = $config{$k};
-        } else {
+        }
+        else {
             warn "$k is not a valid config option. Discard.";
         }
     }
@@ -58,9 +59,9 @@ sub unbind {
 }
 
 sub rename {
-    my $self = shift;
-    my ( $pid, $new_name ) = @_;
-    my $parameters = { 'boxname' => $new_name, };
+    my $self       = shift;
+    my ($new_name) = @_;
+    my $parameters = { 'boxname' => $new_name };
 
     my $res = $self->_request( 'rename', $parameters );
 }
