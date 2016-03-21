@@ -332,7 +332,6 @@ __END__
 C<WWW::Xunlei> is a Perl Wrapper of Xunlei Remote Downloader API.
 L<Official Site of Xunlei Remote|http://yuancheng.xunlei.com>
 
-B<This module is now under deveopment. It's not stable.>
 
 
 =method new( $username, $password, [cookie_file=>'/path/to/cookie'])

@@ -4,7 +4,7 @@ WWW::Xunlei - Perl API For Official Xunlei Remote API.
 
 # VERSION
 
-version 0.05
+version 0.06
 
 # SYNOPSIS
 
@@ -27,7 +27,7 @@ version 0.05
 ## new( $username, $password, \[cookie\_file=>'/path/to/cookie'\])
 
 create a Xunlei client. Load or save Cookies to a plain text file with 
-`cookie_file` option.
+`cookie_file` option. The default session expire time is 7 days.
 
 ## bind($key, \[$name\])
 
@@ -38,6 +38,11 @@ Bind a new downloader with a activation code. The new downloader's name can
 
 List all the downloaders binding with your account. Return a list of
 `WWW::Xunlei::Downloader` object.
+
+&#x3d;=method list\_downloader($name)
+
+Get the downloader of which the name is $name. 
+Return a `WWW::Xunlei::Downloader` object.
 
 # AUTHOR
 
