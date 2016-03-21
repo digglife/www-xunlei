@@ -20,8 +20,6 @@ version 0.06
 `WWW::Xunlei` is a Perl Wrapper of Xunlei Remote Downloader API.
 [Official Site of Xunlei Remote](http://yuancheng.xunlei.com)
 
-**This module is now under deveopment. It's not stable.**
-
 # METHODS
 
 ## new( $username, $password, \[cookie\_file=>'/path/to/cookie'\])
@@ -39,7 +37,7 @@ Bind a new downloader with a activation code. The new downloader's name can
 List all the downloaders binding with your account. Return a list of
 `WWW::Xunlei::Downloader` object.
 
-&#x3d;=method list\_downloader($name)
+## list\_downloader($name)
 
 Get the downloader of which the name is $name. 
 Return a `WWW::Xunlei::Downloader` object.

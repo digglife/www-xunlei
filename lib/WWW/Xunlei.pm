@@ -349,7 +349,7 @@ Bind a new downloader with a activation code. The new downloader's name can
 List all the downloaders binding with your account. Return a list of
 C<WWW::Xunlei::Downloader> object.
 
-==method list_downloader($name)
+=method list_downloader($name)
 
 Get the downloader of which the name is $name. 
 Return a C<WWW::Xunlei::Downloader> object.
