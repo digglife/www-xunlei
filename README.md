@@ -4,14 +4,14 @@ WWW::Xunlei - Perl API For Official Xunlei Remote API.
 
 # VERSION
 
-version 0.06
+version 0.1
 
 # SYNOPSIS
 
     use WWW::Xunlei;
     my $client = WWW::Xunlei->new("username", "password");
     # use the first downloader;
-    my $downloader = $client->list_downloaders()->[0];
+    my $downloader = $client->get_downloaders()->[0];
     # create a remote task;
     $downloader->create_task("http://www.cpan.org/src/5.0/perl-5.22.0.tar.gz");
 
@@ -32,7 +32,7 @@ create a Xunlei client. Load or save Cookies to a plain text file with
 Bind a new downloader with a activation code. The new downloader's name can
  be defined with the optional argument `$name`.
 
-## list\_downloaders
+## get\_downloaders
 
 List all the downloaders binding with your account. Return a list of
 `WWW::Xunlei::Downloader` object.

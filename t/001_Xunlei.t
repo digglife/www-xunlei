@@ -115,8 +115,8 @@ my $list_peer_response = HTTP::Response->new(
 $client->{'ua'}->map_response( qr{homecloud.yuancheng.xunlei.com/listPeer},
     $list_peer_response );
 
-ok( $client->list_downloaders, 'list downloaders' );
-my $d = $client->list_downloaders->[0];
+ok( $client->get_downloaders, 'list downloaders' );
+my $d = $client->get_downloaders->[0];
 isa_ok( $d, 'WWW::Xunlei::Downloader' );
 
 my $d = $client->get_downloader('kusobako');
