@@ -102,13 +102,13 @@ sub unbind {
 
 sub _login {
     my $self = shift;
-    my $res;
-    if ( $self->_is_session_expired ) {
-        $res = $self->_form_login;
-    }
-    else {
+    my $res = 1;
+    unless ( $self->_is_session_expired ) {
         $res = $self->_session_login;
     }
+    # sometimes the cookie( session_id ) is forced revoked from the 
+    # server side. So we have to login with user/pass even it's not expired.
+    $res = $self->_form_login if ( $res != 0 );
 
     die "Login Error: $res" if ( $res != 0 );
     $self->_set_auto_login();
