@@ -131,11 +131,10 @@ is( $d->{'pid'}, 'F9367B658ED6217X0007', 'kusobako\'s ID is right' );
 is( $d->is_online, 1, "Online" );
 
 my $json = {
-    'autoDlSubtitle' => 0,
-    'autoOpenLixian' => 1,
-    'autoOpenVip'    => 1,
-    'defaultPath
-'                        => 'C=>/TDDOWNLOAD/',
+    'autoDlSubtitle'     => 0,
+    'autoOpenLixian'     => 1,
+    'autoOpenVip'        => 1,
+    'defaultPath'        => 'C=>/TDDOWNLOAD/',
     'downloadSpeedLimit' => -1,
     'maxRunTaskNumber'   => 1,
     'msg'                => '',
@@ -176,56 +175,52 @@ $client->{'ua'}->map_response( qr{homecloud.yuancheng.xunlei.com/boxSpace},
     $config_response );
 is_deeply( @{ $d->get_box_space }, @{ $space->{'space'} } );
 
-
 my $tasks = {
-'recycleNum'=> 0, 
-'serverFailNum'=> 0, 
-'rtn'=> 0, 
-'completeNum'=> 969, 
-'sync'=> 0, 
-'dlNum'=> 1,
-'tasks'=> [
-    {
-        'failCode'=> 0, 
-        'vipChannel'=> {
-            'available'=> 0, 
-            'failCode'=> 0, 
-            'opened'=> 0, 
-            'type'=> 0, 
-            'dlBytes'=> 0, 
-            'speed'=> 0
-        }, 
-        'name'=> 'file1.tar.gz', 
-        'url'=> 'http=>//www.digglife.net/files/file1.tar.gz', 
-        'type'=> 1, 
-        'lixianChannel'=> {
-            'failCode'=> 0, 
-            'state'=> 2, 
-            'dlBytes'=> 0, 
-            'serverProgress'=> 0, 
-            'serverSpeed'=> 0, 
-            'speed'=> 0
-        }, 
-        'subList'=> [], 
-        'id'=> '980', 
-        'state'=> 0, 
-        'remainTime'=> 0, 
-        'downTime'=> 9, 
-        'progress'=> 0, 
-        'path'=> '/tmp/thunder/volumes/C=>/TDDOWNLOAD/', 
-        'speed'=> 0, 
-        'createTime'=> 1458534004, 
-        'completeTime'=> 1458534013, 
-        'size'=> 0
-    }
-]
+    'recycleNum'    => 0,
+    'serverFailNum' => 0,
+    'rtn'           => 0,
+    'completeNum'   => 969,
+    'sync'          => 0,
+    'dlNum'         => 1,
+    'tasks'         => [
+        {   'failCode'   => 0,
+            'vipChannel' => {
+                'available' => 0,
+                'failCode'  => 0,
+                'opened'    => 0,
+                'type'      => 0,
+                'dlBytes'   => 0,
+                'speed'     => 0
+            },
+            'name'          => 'file1.tar.gz',
+            'url'           => 'http=>//www.digglife.net/files/file1.tar.gz',
+            'type'          => 1,
+            'lixianChannel' => {
+                'failCode'       => 0,
+                'state'          => 2,
+                'dlBytes'        => 0,
+                'serverProgress' => 0,
+                'serverSpeed'    => 0,
+                'speed'          => 0
+            },
+            'subList'      => [],
+            'id'           => '980',
+            'state'        => 0,
+            'remainTime'   => 0,
+            'downTime'     => 9,
+            'progress'     => 0,
+            'path'         => '/tmp/thunder/volumes/C=>/TDDOWNLOAD/',
+            'speed'        => 0,
+            'createTime'   => 1458534004,
+            'completeTime' => 1458534013,
+            'size'         => 0
+        }
+    ]
 };
 
 $config_response->{'_content'} = JSON::encode_json($tasks);
-$client->{'ua'}->map_response( 
-    qr{homecloud.yuancheng.xunlei.com/list},
+$client->{'ua'}->map_response( qr{homecloud.yuancheng.xunlei.com/list},
     $config_response );
-is_deeply(@{$d->list_running_tasks()}, @{$tasks->{'tasks'}});
-
+is_deeply( @{ $d->list_running_tasks() }, @{ $tasks->{'tasks'} } );
 
 done_testing();
